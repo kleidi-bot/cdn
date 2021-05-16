@@ -1,85 +1,75 @@
 /* eslint-disable */
-const stripe = Stripe(document.getElementById('publishable_key').value);
-const elements = stripe.elements();
+let cardNumber;
+let stripe = Stripe(publishable_key);
+(() => {
+  var elements = stripe.elements({
+    fonts: [
+      {
+        cssSrc: 'https://fonts.googleapis.com/css?family=Quicksand'
+      }
+    ]
+  });
 
-const stripeSettings = {
-  iconStyle: 'solid',
-  style: {
+  const elementStyles = {
     base: {
-      color: '#2a2a2a',
-      iconColor: '#2a2a2a',
-      fontWeight: 400,
-      fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif',
-      fontSize: '16px',
+      color: '#fff',
+      fontWeight: 600,
+      fontFamily: 'Quicksand, Open Sans, Segoe UI, sans-serif',
+      fontSize: '18px',
       fontSmoothing: 'antialiased',
-
-      ':-webkit-autofill': {
-        color: '#fce883'
+      ':focus': {
+        color: '#fff'
+      },
+      '::placeholder': {
+        color: '#9BACC8'
+      },
+      ':focus::placeholder': {
+        color: '#CFD7DF'
       }
     },
     invalid: {
-      iconColor: '#FFC7EE',
-      color: '#FFC7EE'
-    }
-  }
-};
-
-const card = elements.create('card', stripeSettings);
-
-card.mount('#card-element');
-
-const form = document.getElementById('payment-form');
-const submitButton = document.getElementById('submit-button');
-
-form.addEventListener('submit', async function (event) {
-  try {
-    event.preventDefault();
-    submitButton.innerHTML += '&nbsp;<i class="fas fa-spinner fa-spin"></i>';
-    submitButton.style.opacity = '0.9';
-    submitButton.disabled = true;
-
-    const si = await setupCard(card); // { result, customer }
-    const cpi = si.free ? null : await intent(si);
-
-    console.log({
-      customer: si.customer,
-      cpi: cpi ? cpi.paymentIntent.id : null
-    });
-
-    await sendRequest(
-      '/stripe/checkout',
-      {
-        ...$('#checkout-form')
-          .serializeArray()
-          .reduce(function (a, x) {
-            a[x.name] = x.value;
-            return a;
-          }, {}),
-        customer: si.customer,
-        cpi: cpi ? cpi.paymentIntent.id : null
+      color: '#fff',
+      ':focus': {
+        color: '#FA755A'
       },
-      10,
-      1000
-    );
+      '::placeholder': {
+        color: '#FFCCA5'
+      }
+    }
+  };
 
-    window.location.replace('/dashboard/activate');
-  } catch (e) {
-    submitButton.innerHTML = submitButton.innerHTML.replace(
-      '&nbsp;<i class="fas fa-spinner fa-spin"></i>',
-      ''
-    );
-    submitButton.style.opacity = '1';
-    submitButton.disabled = false;
-    window.FlashMessage.error(e.message, {
-      progress: true,
-      interactive: true,
-      timeout: 6000,
-      appear_delay: 200,
-      container: '.flash-container',
-      theme: 'default'
-    });
-  }
-});
+  const elementClasses = {
+    focus: 'focus',
+    empty: 'empty',
+    invalid: 'invalid'
+  };
+
+  cardNumber = elements.create('cardNumber', {
+    style: elementStyles,
+    classes: elementClasses,
+    placeholder: ''
+  });
+  cardNumber.mount('#cardNumber');
+
+  const cardExpiry = elements.create('cardExpiry', {
+    style: elementStyles,
+    classes: elementClasses,
+    placeholder: ''
+  });
+  cardExpiry.mount('#exp');
+
+  const cardCvc = elements.create('cardCvc', {
+    style: elementStyles,
+    classes: elementClasses,
+    placeholder: ''
+  });
+  cardCvc.mount('#cvc');
+
+  const submit = document.getElementById('submit-button');
+  submit.addEventListener('click', convertCard);
+
+  window.loaded = true;
+})();
 
 const sendRequest = async (endpoint, body, retries, timeout) => {
   for (let i = 0; i < retries; i++) {
@@ -179,3 +169,50 @@ const intent = async (si) => {
 
   return cpi;
 };
+
+async function convertCard(e) {
+  const submitButton = document.getElementById('submit-button');
+  try {
+    e.preventDefault();
+    submitButton.disabled = true;
+    $('#submit-button').addClass('btn-in-progress');
+
+    const si = await setupCard(cardNumber); // { result, customer }
+    const cpi = si.free ? null : await intent(si);
+
+    console.log({
+      customer: si.customer,
+      cpi: cpi ? cpi.paymentIntent.id : null
+    });
+
+    await sendRequest(
+      '/stripe/checkout',
+      {
+        ...$('#checkout-form')
+          .serializeArray()
+          .reduce(function (a, x) {
+            a[x.name] = x.value;
+            return a;
+          }, {}),
+        customer: si.customer,
+        cpi: cpi ? cpi.paymentIntent.id : null
+      },
+      10,
+      1000
+    );
+
+    window.location.replace('/dashboard/activate');
+  } catch (e) {
+    submitButton.disabled = false;
+    changePurchaseText();
+    $('#submit-button').removeClass('btn-in-progress');
+    window.FlashMessage.error(e.message, {
+      progress: true,
+      interactive: true,
+      timeout: 6000,
+      appear_delay: 200,
+      container: '.flash-container',
+      theme: 'dark'
+    });
+  }
+}
