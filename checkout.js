@@ -1,6 +1,6 @@
 /* eslint-disable */
 let cardNumber;
-const stripe = Stripe(publishable_key);
+let stripe = Stripe(publishable_key, { stripeAccount });
 
 (() => {
   document
