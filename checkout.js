@@ -1,4 +1,7 @@
 /* eslint-disable */
+
+console.log('Initializing Stripe on account: ', stripeAccount);
+
 let cardNumber;
 let stripe = Stripe(publishable_key, { stripeAccount });
 
